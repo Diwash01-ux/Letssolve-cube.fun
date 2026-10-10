@@ -1,1996 +1,448 @@
-// Letssolve-cube.fun
-// 3D Rubik's Cube Game
+"use strict";
 
 const COLORS = {
-    red: 0xff3434,
-    orange: 0xff982f,
-    white: 0xffffff,
-    yellow: 0xffdf35,
-    blue: 0x2589ff,
-    green: 0x42d66b,
-    black: 0x15151b
+  red: 0xf04444,
+  orange: 0xff982f,
+  white: 0xffffff,
+  yellow: 0xffdf35,
+  blue: 0x2589ff,
+  green: 0x42d66b,
+  black: 0x15151b
 };
 
-let homeWorld;
-let gameWorld;
-let homeCube;
-let gameCube;
+const STEP = 1;
+const SIZE = 0.94;
 
-let isPlaying = false;
-let drag = null;
+let homeWorld = null;
+let gameWorld = null;
+let homeCube = null;
+let gameCube = null;
 
-let cubies = [];
+let homeCubies = [];
+let gameCubies = [];
+
 let busy = false;
 let moveCount = 0;
-let timerStarted = false;
 let startTime = 0;
 let timerInterval = null;
-let scrambleHistory = [];
+let timerRunning = false;
+let dragState = null;
 
-const CUBIE_SIZE = 0.95;
-const GAP = 0.05;
-const STEP = CUBIE_SIZE + GAP;
-
-const FACE_INFO = {
-    R: { axis: "x", layer: 1, direction: -1 },
-    L: { axis: "x", layer: -1, direction: 1 },
-    U: { axis: "y", layer: 1, direction: -1 },
-    D: { axis: "y", layer: -1, direction: 1 },
-    F: { axis: "z", layer: 1, direction: -1 },
-    B: { axis: "z", layer: -1, direction: 1 }
+const FACES = {
+  R: { axis: "x", layer: 1, sign: -1 },
+  L: { axis: "x", layer: -1, sign: 1 },
+  U: { axis: "y", layer: 1, sign: -1 },
+  D: { axis: "y", layer: -1, sign: 1 },
+  F: { axis: "z", layer: 1, sign: -1 },
+  B: { axis: "z", layer: -1, sign: 1 }
 };
 
-// ---------- CREATE THREE.JS SCENE ----------
+function createWorld(id) {
+  const element = document.getElementById(id);
+  if (!element) return null;
 
-function createScene(elementId) {
-    const element = document.getElementById(elementId);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x14161d);
 
-    if (!element) {
-        console.error("Missing element:", elementId);
-        return null;
-    }
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  camera.position.set(4.5, 4.2, 6.5);
+  camera.lookAt(0, 0, 0);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0d0d14);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  element.appendChild(renderer.domElement);
 
-    const camera = new THREE.PerspectiveCamera(
-        40,
-        element.clientWidth / Math.max(element.clientHeight, 1),
-        0.1,
-        100
-    );
+  scene.add(new THREE.AmbientLight(0xffffff, 1.7));
 
-    camera.position.set(4.5, 4.2, 6.5);
-    camera.lookAt(0, 0, 0);
+  const light = new THREE.DirectionalLight(0xffffff, 2.2);
+  light.position.set(5, 8, 7);
+  scene.add(light);
 
-    const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false
-    });
-
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 2)
-    );
-
-    renderer.setSize(
-        element.clientWidth || 300,
-        element.clientHeight || 300
-    );
-
-    renderer.outputEncoding = THREE.sRGBEncoding;
-
-    element.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(5, 8, 6);
-    scene.add(light);
-
-    return {
-        element,
-        scene,
-        camera,
-        renderer
-    };
+  const world = { element, scene, camera, renderer };
+  resizeWorld(world);
+  return world;
 }
-
-// ---------- CREATE CUBE ----------
-
-function createCube(world) {
-    const cube = new THREE.Group();
-    const blackMaterial = new THREE.MeshStandardMaterial({
-        color: COLORS.black,
-        roughness: 0.45
-    });
-
-    const stickerMaterials = {
-        right: new THREE.MeshStandardMaterial({
-            color: COLORS.red,
-            roughness: 0.35
-        }),
-        left: new THREE.MeshStandardMaterial({
-            color: COLORS.orange,
-            roughness: 0.35
-        }),
-        top: new THREE.MeshStandardMaterial({
-            color: COLORS.white,
-            roughness: 0.35
-        }),
-        bottom: new THREE.MeshStandardMaterial({
-            color: COLORS.yellow,
-            roughness: 0.35
-        }),
-        front: new THREE.MeshStandardMaterial({
-            color: COLORS.green,
-            roughness: 0.35
-        }),
-        back: new THREE.MeshStandardMaterial({
-            color: COLORS.blue,
-            roughness: 0.35
-        })
-    };
-
-    const stickerGeometry = new THREE.BoxGeometry(
-        CUBIE_SIZE,
-        CUBIE_SIZE,
-        CUBIE_SIZE
-    );
-
-    for (let x = -1; x <= 1; x++) {
-        for (let y = -1; y <= 1; y++) {
-            for (let z = -1; z <= 1; z++) {
-                const materials = [
-                    x === 1 ? stickerMaterials.right : blackMaterial,
-                    x === -1 ? stickerMaterials.left : blackMaterial,
-                    y === 1 ? stickerMaterials.top : blackMaterial,
-                    y === -1 ? stickerMaterials.bottom : blackMaterial,
-                    z === 1 ? stickerMaterials.front : blackMaterial,
-                    z === -1 ? stickerMaterials.back : blackMaterial
-                ];
-
-                const cubie = new THREE.Mesh(
-                    stickerGeometry,
-                    materials
-                );
-
-                cubie.position.set(
-                    x * STEP,
-                    y * STEP,
-                    z * STEP
-                );
-
-                cubie.userData.home = {
-                    x,
-                    y,
-                    z
-                };
-
-                cube.add(cubie);
-                cubies.push(cubie);
-            }
-        }
-    }
-
-    world.scene.add(cube);
-    return cube;
-}
-
-// ---------- INITIALIZE WORLDS ----------
-
-function initialize() {
-    homeWorld = createScene("home-cube");
-    gameWorld = createScene("game-cube");
-
-    if (!homeWorld || !gameWorld) {
-        console.error(
-            "Could not find home-cube or game-cube in index.html."
-        );
-        return;
-    }
-
-    homeCube = createCube(homeWorld);
-    gameCube = createCube(gameWorld);
-
-    // Keep the game cube hidden until the player starts.
-    gameCube.visible = false;
-
-    animate();
-}
-
-// ---------- RENDER LOOP ----------
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (homeWorld) {
-        homeWorld.renderer.render(
-            homeWorld.scene,
-            homeWorld.camera
-        );
-    }
-
-    if (gameWorld) {
-        gameWorld.renderer.render(
-            gameWorld.scene,
-            gameWorld.camera
-        );
-    }
-}
-
-// ---------- RESIZE ----------
 
 function resizeWorld(world) {
-    if (!world) return;
+  if (!world) return;
 
-    const width = world.element.clientWidth;
-    const height = world.element.clientHeight;
+  const width = Math.max(world.element.clientWidth, 1);
+  const height = Math.max(world.element.clientHeight, 1);
 
-    if (!width || !height) return;
-
-    world.camera.aspect = width / height;
-    world.camera.updateProjectionMatrix();
-
-    world.renderer.setSize(width, height);
+  world.camera.aspect = width / height;
+  world.camera.updateProjectionMatrix();
+  world.renderer.setSize(width, height);
 }
 
-window.addEventListener("resize", () => {
-    resizeWorld(homeWorld);
-    resizeWorld(gameWorld);
-});
+function makeCube(world) {
+  const cube = new THREE.Group();
+  const cubies = [];
 
-// ---------- DRAG ROTATION ----------
+  const material = color => new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.38,
+    metalness: 0.02
+  });
 
-function enableDragging(world, cube) {
-    const canvas = world.renderer.domElement;
+  const black = material(COLORS.black);
 
-    canvas.addEventListener("pointerdown", event => {
-        if (busy) return;
+  const faceMaterials = [
+    material(COLORS.red),    // +X
+    material(COLORS.orange), // -X
+    material(COLORS.white),  // +Y
+    material(COLORS.yellow), // -Y
+    material(COLORS.green),  // +Z
+    material(COLORS.blue)    // -Z
+  ];
 
-        drag = {
-            x: event.clientX,
-            y: event.clientY,
-            pointerId: event.pointerId,
-            cube
-        };
+  const geometry = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
 
-        canvas.setPointerCapture(event.pointerId);
-    });
+  for (let x = -1; x <= 1; x++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let z = -1; z <= 1; z++) {
+        const mats = [
+          x === 1 ? faceMaterials[0] : black,
+          x === -1 ? faceMaterials[1] : black,
+          y === 1 ? faceMaterials[2] : black,
+          y === -1 ? faceMaterials[3] : black,
+          z === 1 ? faceMaterials[4] : black,
+          z === -1 ? faceMaterials[5] : black
+        ];
 
-    canvas.addEventListener("pointermove", event => {
-        if (!drag || drag.pointerId !== event.pointerId) {
-            return;
-        }
+        const cubie = new THREE.Mesh(geometry, mats);
+        cubie.position.set(x * STEP, y * STEP, z * STEP);
+        cubie.userData.home = { x, y, z };
+        cube.add(cubie);
+        cubies.push(cubie);
+      }
+    }
+  }
 
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
-
-        cube.rotation.y += dx * 0.01;
-        cube.rotation.x += dy * 0.01;
-
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-    });
-
-    canvas.addEventListener("pointerup", () => {
-        drag = null;
-    });
-
-    canvas.addEventListener("pointercancel", () => {
-        drag = null;
-    });
+  world.scene.add(cube);
+  return { cube, cubies };
 }
 
-// ---------- GAME NAVIGATION ----------
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (homeWorld) {
+    homeWorld.renderer.render(homeWorld.scene, homeWorld.camera);
+  }
+
+  if (gameWorld) {
+    gameWorld.renderer.render(gameWorld.scene, gameWorld.camera);
+  }
+}
+
+function connectDrag(world, cube) {
+  const canvas = world.renderer.domElement;
+
+  canvas.addEventListener("pointerdown", event => {
+    if (busy) return;
+
+    dragState = {
+      x: event.clientX,
+      y: event.clientY,
+      id: event.pointerId,
+      cube
+    };
+
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", event => {
+    if (!dragState || dragState.id !== event.pointerId) return;
+
+    const dx = event.clientX - dragState.x;
+    const dy = event.clientY - dragState.y;
+
+    dragState.cube.rotation.y += dx * 0.01;
+    dragState.cube.rotation.x += dy * 0.01;
+
+    dragState.x = event.clientX;
+    dragState.y = event.clientY;
+  });
+
+  const stop = () => { dragState = null; };
+
+  canvas.addEventListener("pointerup", stop);
+  canvas.addEventListener("pointercancel", stop);
+}
+
+function showMessage(text) {
+  const el = document.getElementById("message");
+  if (!el) return;
+
+  el.textContent = text;
+  setTimeout(() => {
+    if (el.textContent === text) el.textContent = "";
+  }, 2500);
+}
 
 function startGame() {
-    isPlaying = true;
+  document.getElementById("home").hidden = true;
+  document.getElementById("game").hidden = false;
 
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "none";
-    if (gameSection) gameSection.style.display = "block";
-
-    if (homeCube) homeCube.visible = false;
-    if (gameCube) gameCube.visible = true;
-
-    resizeWorld(gameWorld);
+  resizeWorld(gameWorld);
+  if (gameCube) gameCube.visible = true;
 }
 
 function backHome() {
-    isPlaying = false;
+  document.getElementById("game").hidden = true;
+  document.getElementById("home").hidden = false;
 
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "";
-    if (gameSection) gameSection.style.display = "none";
-
-    if (homeCube) homeCube.visible = true;
-    if (gameCube) gameCube.visible = false;
-
-    resizeWorld(homeWorld);
+  resizeWorld(homeWorld);
 }
-
-// ---------- TIMER ----------
 
 function startTimer() {
-    if (timerStarted) return;
+  if (timerRunning) return;
 
-    timerStarted = true;
-    startTime = Date.now();
+  timerRunning = true;
+  startTime = Date.now();
 
-    timerInterval = setInterval(updateTimer, 100);
-}
+  timerInterval = setInterval(() => {
+    const ms = Date.now() - startTime;
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    const centis = Math.floor((ms % 1000) / 10);
 
-function updateTimer() {
-    const elapsed = Date.now() - startTime;
-    const minutes = Math.floor(elapsed / 60000);
-    const seconds = Math.floor((elapsed % 60000) / 1000);
-    const hundredths = Math.floor((elapsed % 1000) / 10);
-
-    const display =
-        String(minutes).padStart(2, "0") + ":" +
-        String(seconds).padStart(2, "0") + "." +
-        String(hundredths).padStart(2, "0");
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = display;
-    }
+    document.getElementById("timer").textContent =
+      String(mins).padStart(2, "0") + ":" +
+      String(secs).padStart(2, "0") + "." +
+      String(centis).padStart(2, "0");
+  }, 50);
 }
 
 function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-
-    timerStarted = false;
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+  timerRunning = false;
 }
 
-function resetTimer() {
-    stopTimer();
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = "00:00.00";
-    }
+function updateMoves() {
+  document.getElementById("move-count").textContent = String(moveCount);
 }
-
-// ---------- MOVE COUNTER ----------
-
-function updateMoveCount() {
-    const counter = document.getElementById("move-count");
-
-    if (counter) {
-        counter.textContent = String(moveCount);
-    }
-}
-
-// ---------- FACE TURNS ----------
 
 function turnFace(face, reverse = false) {
-    if (busy || !gameCube) return;
+  if (busy) return;
 
-    const info = FACE_INFO[face];
+  const info = FACES[face];
+  if (!info) return;
 
-    if (!info) {
-        console.warn("Unknown face:", face);
-        return;
+  busy = true;
+  startTimer();
+
+  const selected = gameCubies.filter(cubie =>
+    Math.round(cubie.position[info.axis] / STEP) === info.layer
+  );
+
+  const pivot = new THREE.Group();
+  gameCube.add(pivot);
+
+  selected.forEach(cubie => pivot.attach(cubie));
+
+  const angle = info.sign * (reverse ? -1 : 1) * Math.PI / 2;
+  const start = performance.now();
+  const duration = 180;
+
+  function animateTurn(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+
+    pivot.rotation[info.axis] = angle * eased;
+
+    if (progress < 1) {
+      requestAnimationFrame(animateTurn);
+      return;
     }
 
-    startTimer();
-    busy = true;
+    pivot.rotation[info.axis] = angle;
+    pivot.updateMatrixWorld(true);
 
-    const angle =
-        info.direction *
-        (reverse ? -1 : 1) *
-        Math.PI / 2;
-
-    const selected = cubies.filter(cubie => {
-        return Math.round(cubie.position[info.axis] / STEP) ===
-            info.layer;
-    });
-
-    const pivot = new THREE.Group();
-    gameCube.add(pivot);
-
-    // Preserve each selected cubie's world transform.
     selected.forEach(cubie => {
-        pivot.attach(cubie);
+      gameCube.attach(cubie);
+
+      cubie.position.set(
+        Math.round(cubie.position.x),
+        Math.round(cubie.position.y),
+        Math.round(cubie.position.z)
+      );
+
+      const euler = new THREE.Euler().setFromQuaternion(cubie.quaternion);
+      euler.x = Math.round(euler.x / (Math.PI / 2)) * Math.PI / 2;
+      euler.y = Math.round(euler.y / (Math.PI / 2)) * Math.PI / 2;
+      euler.z = Math.round(euler.z / (Math.PI / 2)) * Math.PI / 2;
+      cubie.rotation.copy(euler);
     });
 
-    const duration = 180;
-    const start = performance.now();
+    gameCube.remove(pivot);
+    moveCount++;
+    updateMoves();
+    busy = false;
 
-    function animateTurn(now) {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-
-        pivot.rotation[info.axis] = angle * eased;
-
-        if (progress < 1) {
-            requestAnimationFrame(animateTurn);
-            return;
-        }
-
-        // Snap to an exact quarter turn.
-        pivot.rotation[info.axis] = angle;
-
-        gameCube.updateMatrixWorld(true);
-
-        selected.forEach(cubie => {
-            gameCube.attach(cubie);
-
-            cubie.position.set(
-                Math.round(cubie.position.x / STEP) * STEP,
-                Math.round(cubie.position.y / STEP) * STEP,
-                Math.round(cubie.position.z / STEP) * STEP
-            );
-
-            cubie.rotation.set(
-                Math.round(cubie.rotation.x / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.y / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.z / (Math.PI / 2)) *
-                    (Math.PI / 2)
-            );
-        });
-
-        gameCube.remove(pivot);
-
-        moveCount++;
-        updateMoveCount();
-
-        busy = false;
-
-        if (isCubeSolved()) {
-            stopTimer();
-            showMessage("🎉 Cube solved!");
-        }
+    if (isSolved()) {
+      stopTimer();
+      showMessage("Cube solved! Great job!");
     }
+  }
 
-    requestAnimationFrame(animateTurn);
+  requestAnimationFrame(animateTurn);
 }
-
-// ---------- SCRAMBLE ----------
 
 function scrambleCube() {
-    if (busy) return;
+  if (busy) return;
 
-    scrambleHistory = [];
+  const faces = Object.keys(FACES);
+  let done = 0;
+  let previous = "";
 
-    const faces = ["R", "L", "U", "D", "F", "B"];
-    let count = 0;
-
-    function nextMove() {
-        if (count >= 20) {
-            showMessage("Scrambled! Solve the cube.");
-            return;
-        }
-
-        let face;
-
-        do {
-            face = faces[Math.floor(Math.random() * faces.length)];
-        } while (
-            scrambleHistory.length &&
-            scrambleHistory[scrambleHistory.length - 1] === face
-        );
-
-        scrambleHistory.push(face);
-        count++;
-
-        turnFace(face, Math.random() < 0.5);
-
-        setTimeout(nextMove, 240);
+  function next() {
+    if (done >= 20) {
+      showMessage("Scramble complete. Your turn!");
+      return;
     }
 
-    nextMove();
+    let face;
+    do {
+      face = faces[Math.floor(Math.random() * faces.length)];
+    } while (face === previous);
+
+    previous = face;
+    done++;
+
+    turnFace(face, Math.random() < 0.5);
+    setTimeout(next, 230);
+  }
+
+  next();
 }
 
-// ---------- SOLVED CHECK ----------
+function isSolved() {
+  const sides = [
+    { axis: "x", value: 1 },
+    { axis: "x", value: -1 },
+    { axis: "y", value: 1 },
+    { axis: "y", value: -1 },
+    { axis: "z", value: 1 },
+    { axis: "z", value: -1 }
+  ];
 
-function isCubeSolved() {
-    const faces = [
-        { axis: "x", value: 1 },
-        { axis: "x", value: -1 },
-        { axis: "y", value: 1 },
-        { axis: "y", value: -1 },
-        { axis: "z", value: 1 },
-        { axis: "z", value: -1 }
-    ];
-
-    for (const face of faces) {
-        const faceCubies = cubies.filter(cubie => {
-            return Math.round(cubie.position[face.axis] / STEP) ===
-                face.value;
-        });
-
-        if (faceCubies.length !== 9) return false;
-
-        const first = faceCubies[0];
-        const firstColor = getFaceColor(first, face);
-
-        if (!firstColor) return false;
-
-        for (const cubie of faceCubies) {
-            if (getFaceColor(cubie, face) !== firstColor) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-function getFaceColor(cubie, face) {
-    const normal = new THREE.Vector3(
-        face.axis === "x" ? face.value : 0,
-        face.axis === "y" ? face.value : 0,
-        face.axis === "z" ? face.value : 0
+  for (const side of sides) {
+    const cubies = gameCubies.filter(c =>
+      Math.round(c.position[side.axis]) === side.value
     );
 
-    normal.applyQuaternion(cubie.quaternion);
+    if (cubies.length !== 9) return false;
 
-    const directions = [
-        { x: 1, y: 0, z: 0, material: 0 },
-        { x: -1, y: 0, z: 0, material: 1 },
-        { x: 0, y: 1, z: 0, material: 2 },
-        { x: 0, y: -1, z: 0, material: 3 },
-        { x: 0, y: 0, z: 1, material: 4 },
-        { x: 0, y: 0, z: -1, material: 5 }
-    ];
+    const colorOf = c => {
+      const normal = new THREE.Vector3(
+        side.axis === "x" ? side.value : 0,
+        side.axis === "y" ? side.value : 0,
+        side.axis === "z" ? side.value : 0
+      ).applyQuaternion(c.quaternion);
 
-    let best = null;
-    let bestDot = -Infinity;
+      const directions = [
+        [1, 0, 0, 0], [-1, 0, 0, 1],
+        [0, 1, 0, 2], [0, -1, 0, 3],
+        [0, 0, 1, 4], [0, 0, -1, 5]
+      ];
 
-    for (const direction of directions) {
-        const dot =
-            normal.x * direction.x +
-            normal.y * direction.y +
-            normal.z * direction.z;
+      let best = directions[0];
+      let dotBest = -Infinity;
 
-        if (dot > bestDot) {
-            bestDot = dot;
-            best = direction;
+      for (const d of directions) {
+        const dot = normal.x * d[0] +
+          normal.y * d[1] + normal.z * d[2];
+
+        if (dot > dotBest) {
+          dotBest = dot;
+          best = d;
         }
-    }
+      }
 
-    if (!best || bestDot < 0.9) return null;
+      return c.material[best[3]].color.getHex();
+    };
 
-    return cubie.material[best.material].color.getHex();
+    const firstColor = colorOf(cubies[0]);
+    if (cubies.some(c => colorOf(c) !== firstColor)) return false;
+  }
+
+  return true;
 }
 
-// ---------- RESET ----------
-
 function resetCube() {
-    if (busy || !gameCube) return;
+  if (busy) return;
 
-    stopTimer();
-    moveCount = 0;
-    updateMoveCount();
-    resetTimer();
+  stopTimer();
+  moveCount = 0;
+  updateMoves();
 
-    // Restore every cubie to its original position and orientation.
-    cubies.forEach(cubie => {
-        cubie.position.set(
-            cubie.userData.home.x * STEP,
-            cubie.userData.home.y * STEP,
-            cubie.userData.home.z * STEP
-        );
+  document.getElementById("timer").textContent = "00:00.00";
 
-        cubie.rotation.set(0, 0, 0);
-        cubie.quaternion.identity();
-    });
+  gameCubies.forEach(cubie => {
+    const h = cubie.userData.home;
+    cubie.position.set(h.x, h.y, h.z);
+    cubie.rotation.set(0, 0, 0);
+    cubie.quaternion.identity();
+  });
 
-    gameCube.rotation.set(0, 0, 0);
-
-    showMessage("Cube reset!");
+  gameCube.rotation.set(0, 0, 0);
+  showMessage("Cube reset.");
 }
 
 function resetView() {
-    if (!gameCube || busy) return;
+  if (busy) return;
 
-    gameCube.rotation.set(0, 0, 0);
-    gameWorld.camera.position.set(4.5, 4.2, 6.5);
-    gameWorld.camera.lookAt(0, 0, 0);
+  gameCube.rotation.set(0, 0, 0);
+  gameWorld.camera.position.set(4.5, 4.2, 6.5);
+  gameWorld.camera.lookAt(0, 0, 0);
 }
 
-// ---------- MESSAGE ----------
+function init() {
+  if (!window.THREE) {
+    alert("The 3D library did not load. Please check your internet connection.");
+    return;
+  }
 
-function showMessage(message) {
-    const element = document.getElementById("message");
+  homeWorld = createWorld("home-cube");
+  gameWorld = createWorld("game-cube");
 
-    if (element) {
-        element.textContent = message;
+  if (!homeWorld || !gameWorld) {
+    console.error("Could not find cube containers.");
+    return;
+  }
 
-        setTimeout(() => {
-            if (element.textContent === message) {
-                element.textContent = "";
-            }
-        }, 2500);
-    } else {
-        console.log(message);
-    }
-}
+  const home = makeCube(homeWorld);
+  homeCube = home.cube;
+  homeCubies = home.cubies;
 
-// ---------- BUTTON CONNECTIONS ----------
+  const game = makeCube(gameWorld);
+  gameCube = game.cube;
+  gameCubies = game.cubies;
 
-function connectButtons() {
-    const buttonActions = {
-        "start-button": startGame,
-        "scramble-button": scrambleCube,
-        "reset-button": resetCube,
-        "reset-view-button": resetView,
-        "home-button": backHome
-    };
+  connectDrag(homeWorld, homeCube);
+  connectDrag(gameWorld, gameCube);
 
-    Object.entries(buttonActions).forEach(([id, action]) => {
-        const button = document.getElementById(id);
+  document.getElementById("start-button").addEventListener("click", startGame);
+  document.getElementById("nav-play").addEventListener("click", startGame);
+  document.getElementById("home-button").addEventListener("click", backHome);
+  document.getElementById("scramble-button").addEventListener("click", scrambleCube);
+  document.getElementById("reset-button").addEventListener("click", resetCube);
+  document.getElementById("reset-view-button").addEventListener("click", resetView);
 
-        if (button) {
-            button.addEventListener("click", action);
-        }
+  document.querySelectorAll("[data-move]").forEach(button => {
+    button.addEventListener("click", () => {
+      const move = button.dataset.move;
+      turnFace(move[0], move.endsWith("'"));
     });
+  });
 
-    document.querySelectorAll("[data-move]").forEach(button => {
-        button.addEventListener("click", () => {
-            const value = button.dataset.move;
-            const reverse = value.endsWith("'");
-
-            turnFace(value[0], reverse);
-        });
-    });
-}
-
-// ---------- START ----------
-
-window.addEventListener("DOMContentLoaded", () => {
-    initialize();
-
-    if (homeWorld && homeCube) {
-        enableDragging(homeWorld, homeCube);
-    }
-
-    if (gameWorld && gameCube) {
-        enableDragging(gameWorld, gameCube);
-    }
-
-    connectButtons();
-});// Letssolve-cube.fun
-// 3D Rubik's Cube Game
-
-const COLORS = {
-    red: 0xff3434,
-    orange: 0xff982f,
-    white: 0xffffff,
-    yellow: 0xffdf35,
-    blue: 0x2589ff,
-    green: 0x42d66b,
-    black: 0x15151b
-};
-
-let homeWorld;
-let gameWorld;
-let homeCube;
-let gameCube;
-
-let isPlaying = false;
-let drag = null;
-
-let cubies = [];
-let busy = false;
-let moveCount = 0;
-let timerStarted = false;
-let startTime = 0;
-let timerInterval = null;
-let scrambleHistory = [];
-
-const CUBIE_SIZE = 0.95;
-const GAP = 0.05;
-const STEP = CUBIE_SIZE + GAP;
-
-const FACE_INFO = {
-    R: { axis: "x", layer: 1, direction: -1 },
-    L: { axis: "x", layer: -1, direction: 1 },
-    U: { axis: "y", layer: 1, direction: -1 },
-    D: { axis: "y", layer: -1, direction: 1 },
-    F: { axis: "z", layer: 1, direction: -1 },
-    B: { axis: "z", layer: -1, direction: 1 }
-};
-
-// ---------- CREATE THREE.JS SCENE ----------
-
-function createScene(elementId) {
-    const element = document.getElementById(elementId);
-
-    if (!element) {
-        console.error("Missing element:", elementId);
-        return null;
-    }
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0d0d14);
-
-    const camera = new THREE.PerspectiveCamera(
-        40,
-        element.clientWidth / Math.max(element.clientHeight, 1),
-        0.1,
-        100
-    );
-
-    camera.position.set(4.5, 4.2, 6.5);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false
-    });
-
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 2)
-    );
-
-    renderer.setSize(
-        element.clientWidth || 300,
-        element.clientHeight || 300
-    );
-
-    renderer.outputEncoding = THREE.sRGBEncoding;
-
-    element.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(5, 8, 6);
-    scene.add(light);
-
-    return {
-        element,
-        scene,
-        camera,
-        renderer
-    };
-}
-
-// ---------- CREATE CUBE ----------
-
-function createCube(world) {
-    const cube = new THREE.Group();
-    const blackMaterial = new THREE.MeshStandardMaterial({
-        color: COLORS.black,
-        roughness: 0.45
-    });
-
-    const stickerMaterials = {
-        right: new THREE.MeshStandardMaterial({
-            color: COLORS.red,
-            roughness: 0.35
-        }),
-        left: new THREE.MeshStandardMaterial({
-            color: COLORS.orange,
-            roughness: 0.35
-        }),
-        top: new THREE.MeshStandardMaterial({
-            color: COLORS.white,
-            roughness: 0.35
-        }),
-        bottom: new THREE.MeshStandardMaterial({
-            color: COLORS.yellow,
-            roughness: 0.35
-        }),
-        front: new THREE.MeshStandardMaterial({
-            color: COLORS.green,
-            roughness: 0.35
-        }),
-        back: new THREE.MeshStandardMaterial({
-            color: COLORS.blue,
-            roughness: 0.35
-        })
-    };
-
-    const stickerGeometry = new THREE.BoxGeometry(
-        CUBIE_SIZE,
-        CUBIE_SIZE,
-        CUBIE_SIZE
-    );
-
-    for (let x = -1; x <= 1; x++) {
-        for (let y = -1; y <= 1; y++) {
-            for (let z = -1; z <= 1; z++) {
-                const materials = [
-                    x === 1 ? stickerMaterials.right : blackMaterial,
-                    x === -1 ? stickerMaterials.left : blackMaterial,
-                    y === 1 ? stickerMaterials.top : blackMaterial,
-                    y === -1 ? stickerMaterials.bottom : blackMaterial,
-                    z === 1 ? stickerMaterials.front : blackMaterial,
-                    z === -1 ? stickerMaterials.back : blackMaterial
-                ];
-
-                const cubie = new THREE.Mesh(
-                    stickerGeometry,
-                    materials
-                );
-
-                cubie.position.set(
-                    x * STEP,
-                    y * STEP,
-                    z * STEP
-                );
-
-                cubie.userData.home = {
-                    x,
-                    y,
-                    z
-                };
-
-                cube.add(cubie);
-                cubies.push(cubie);
-            }
-        }
-    }
-
-    world.scene.add(cube);
-    return cube;
-}
-
-// ---------- INITIALIZE WORLDS ----------
-
-function initialize() {
-    homeWorld = createScene("home-cube");
-    gameWorld = createScene("game-cube");
-
-    if (!homeWorld || !gameWorld) {
-        console.error(
-            "Could not find home-cube or game-cube in index.html."
-        );
-        return;
-    }
-
-    homeCube = createCube(homeWorld);
-    gameCube = createCube(gameWorld);
-
-    // Keep the game cube hidden until the player starts.
-    gameCube.visible = false;
-
-    animate();
-}
-
-// ---------- RENDER LOOP ----------
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (homeWorld) {
-        homeWorld.renderer.render(
-            homeWorld.scene,
-            homeWorld.camera
-        );
-    }
-
-    if (gameWorld) {
-        gameWorld.renderer.render(
-            gameWorld.scene,
-            gameWorld.camera
-        );
-    }
-}
-
-// ---------- RESIZE ----------
-
-function resizeWorld(world) {
-    if (!world) return;
-
-    const width = world.element.clientWidth;
-    const height = world.element.clientHeight;
-
-    if (!width || !height) return;
-
-    world.camera.aspect = width / height;
-    world.camera.updateProjectionMatrix();
-
-    world.renderer.setSize(width, height);
-}
-
-window.addEventListener("resize", () => {
+  window.addEventListener("resize", () => {
     resizeWorld(homeWorld);
     resizeWorld(gameWorld);
-});
+  });
 
-// ---------- DRAG ROTATION ----------
-
-function enableDragging(world, cube) {
-    const canvas = world.renderer.domElement;
-
-    canvas.addEventListener("pointerdown", event => {
-        if (busy) return;
-
-        drag = {
-            x: event.clientX,
-            y: event.clientY,
-            pointerId: event.pointerId,
-            cube
-        };
-
-        canvas.setPointerCapture(event.pointerId);
-    });
-
-    canvas.addEventListener("pointermove", event => {
-        if (!drag || drag.pointerId !== event.pointerId) {
-            return;
-        }
-
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
-
-        cube.rotation.y += dx * 0.01;
-        cube.rotation.x += dy * 0.01;
-
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-    });
-
-    canvas.addEventListener("pointerup", () => {
-        drag = null;
-    });
-
-    canvas.addEventListener("pointercancel", () => {
-        drag = null;
-    });
+  animate();
 }
 
-// ---------- GAME NAVIGATION ----------
-
-function startGame() {
-    isPlaying = true;
-
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "none";
-    if (gameSection) gameSection.style.display = "block";
-
-    if (homeCube) homeCube.visible = false;
-    if (gameCube) gameCube.visible = true;
-
-    resizeWorld(gameWorld);
-}
-
-function backHome() {
-    isPlaying = false;
-
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "";
-    if (gameSection) gameSection.style.display = "none";
-
-    if (homeCube) homeCube.visible = true;
-    if (gameCube) gameCube.visible = false;
-
-    resizeWorld(homeWorld);
-}
-
-// ---------- TIMER ----------
-
-function startTimer() {
-    if (timerStarted) return;
-
-    timerStarted = true;
-    startTime = Date.now();
-
-    timerInterval = setInterval(updateTimer, 100);
-}
-
-function updateTimer() {
-    const elapsed = Date.now() - startTime;
-    const minutes = Math.floor(elapsed / 60000);
-    const seconds = Math.floor((elapsed % 60000) / 1000);
-    const hundredths = Math.floor((elapsed % 1000) / 10);
-
-    const display =
-        String(minutes).padStart(2, "0") + ":" +
-        String(seconds).padStart(2, "0") + "." +
-        String(hundredths).padStart(2, "0");
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = display;
-    }
-}
-
-function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-
-    timerStarted = false;
-}
-
-function resetTimer() {
-    stopTimer();
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = "00:00.00";
-    }
-}
-
-// ---------- MOVE COUNTER ----------
-
-function updateMoveCount() {
-    const counter = document.getElementById("move-count");
-
-    if (counter) {
-        counter.textContent = String(moveCount);
-    }
-}
-
-// ---------- FACE TURNS ----------
-
-function turnFace(face, reverse = false) {
-    if (busy || !gameCube) return;
-
-    const info = FACE_INFO[face];
-
-    if (!info) {
-        console.warn("Unknown face:", face);
-        return;
-    }
-
-    startTimer();
-    busy = true;
-
-    const angle =
-        info.direction *
-        (reverse ? -1 : 1) *
-        Math.PI / 2;
-
-    const selected = cubies.filter(cubie => {
-        return Math.round(cubie.position[info.axis] / STEP) ===
-            info.layer;
-    });
-
-    const pivot = new THREE.Group();
-    gameCube.add(pivot);
-
-    // Preserve each selected cubie's world transform.
-    selected.forEach(cubie => {
-        pivot.attach(cubie);
-    });
-
-    const duration = 180;
-    const start = performance.now();
-
-    function animateTurn(now) {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-
-        pivot.rotation[info.axis] = angle * eased;
-
-        if (progress < 1) {
-            requestAnimationFrame(animateTurn);
-            return;
-        }
-
-        // Snap to an exact quarter turn.
-        pivot.rotation[info.axis] = angle;
-
-        gameCube.updateMatrixWorld(true);
-
-        selected.forEach(cubie => {
-            gameCube.attach(cubie);
-
-            cubie.position.set(
-                Math.round(cubie.position.x / STEP) * STEP,
-                Math.round(cubie.position.y / STEP) * STEP,
-                Math.round(cubie.position.z / STEP) * STEP
-            );
-
-            cubie.rotation.set(
-                Math.round(cubie.rotation.x / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.y / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.z / (Math.PI / 2)) *
-                    (Math.PI / 2)
-            );
-        });
-
-        gameCube.remove(pivot);
-
-        moveCount++;
-        updateMoveCount();
-
-        busy = false;
-
-        if (isCubeSolved()) {
-            stopTimer();
-            showMessage("🎉 Cube solved!");
-        }
-    }
-
-    requestAnimationFrame(animateTurn);
-}
-
-// ---------- SCRAMBLE ----------
-
-function scrambleCube() {
-    if (busy) return;
-
-    scrambleHistory = [];
-
-    const faces = ["R", "L", "U", "D", "F", "B"];
-    let count = 0;
-
-    function nextMove() {
-        if (count >= 20) {
-            showMessage("Scrambled! Solve the cube.");
-            return;
-        }
-
-        let face;
-
-        do {
-            face = faces[Math.floor(Math.random() * faces.length)];
-        } while (
-            scrambleHistory.length &&
-            scrambleHistory[scrambleHistory.length - 1] === face
-        );
-
-        scrambleHistory.push(face);
-        count++;
-
-        turnFace(face, Math.random() < 0.5);
-
-        setTimeout(nextMove, 240);
-    }
-
-    nextMove();
-}
-
-// ---------- SOLVED CHECK ----------
-
-function isCubeSolved() {
-    const faces = [
-        { axis: "x", value: 1 },
-        { axis: "x", value: -1 },
-        { axis: "y", value: 1 },
-        { axis: "y", value: -1 },
-        { axis: "z", value: 1 },
-        { axis: "z", value: -1 }
-    ];
-
-    for (const face of faces) {
-        const faceCubies = cubies.filter(cubie => {
-            return Math.round(cubie.position[face.axis] / STEP) ===
-                face.value;
-        });
-
-        if (faceCubies.length !== 9) return false;
-
-        const first = faceCubies[0];
-        const firstColor = getFaceColor(first, face);
-
-        if (!firstColor) return false;
-
-        for (const cubie of faceCubies) {
-            if (getFaceColor(cubie, face) !== firstColor) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-function getFaceColor(cubie, face) {
-    const normal = new THREE.Vector3(
-        face.axis === "x" ? face.value : 0,
-        face.axis === "y" ? face.value : 0,
-        face.axis === "z" ? face.value : 0
-    );
-
-    normal.applyQuaternion(cubie.quaternion);
-
-    const directions = [
-        { x: 1, y: 0, z: 0, material: 0 },
-        { x: -1, y: 0, z: 0, material: 1 },
-        { x: 0, y: 1, z: 0, material: 2 },
-        { x: 0, y: -1, z: 0, material: 3 },
-        { x: 0, y: 0, z: 1, material: 4 },
-        { x: 0, y: 0, z: -1, material: 5 }
-    ];
-
-    let best = null;
-    let bestDot = -Infinity;
-
-    for (const direction of directions) {
-        const dot =
-            normal.x * direction.x +
-            normal.y * direction.y +
-            normal.z * direction.z;
-
-        if (dot > bestDot) {
-            bestDot = dot;
-            best = direction;
-        }
-    }
-
-    if (!best || bestDot < 0.9) return null;
-
-    return cubie.material[best.material].color.getHex();
-}
-
-// ---------- RESET ----------
-
-function resetCube() {
-    if (busy || !gameCube) return;
-
-    stopTimer();
-    moveCount = 0;
-    updateMoveCount();
-    resetTimer();
-
-    // Restore every cubie to its original position and orientation.
-    cubies.forEach(cubie => {
-        cubie.position.set(
-            cubie.userData.home.x * STEP,
-            cubie.userData.home.y * STEP,
-            cubie.userData.home.z * STEP
-        );
-
-        cubie.rotation.set(0, 0, 0);
-        cubie.quaternion.identity();
-    });
-
-    gameCube.rotation.set(0, 0, 0);
-
-    showMessage("Cube reset!");
-}
-
-function resetView() {
-    if (!gameCube || busy) return;
-
-    gameCube.rotation.set(0, 0, 0);
-    gameWorld.camera.position.set(4.5, 4.2, 6.5);
-    gameWorld.camera.lookAt(0, 0, 0);
-}
-
-// ---------- MESSAGE ----------
-
-function showMessage(message) {
-    const element = document.getElementById("message");
-
-    if (element) {
-        element.textContent = message;
-
-        setTimeout(() => {
-            if (element.textContent === message) {
-                element.textContent = "";
-            }
-        }, 2500);
-    } else {
-        console.log(message);
-    }
-}
-
-// ---------- BUTTON CONNECTIONS ----------
-
-function connectButtons() {
-    const buttonActions = {
-        "start-button": startGame,
-        "scramble-button": scrambleCube,
-        "reset-button": resetCube,
-        "reset-view-button": resetView,
-        "home-button": backHome
-    };
-
-    Object.entries(buttonActions).forEach(([id, action]) => {
-        const button = document.getElementById(id);
-// Letssolve-cube.fun
-// 3D Rubik's Cube Game
-
-const COLORS = {
-    red: 0xff3434,
-    orange: 0xff982f,
-    white: 0xffffff,
-    yellow: 0xffdf35,
-    blue: 0x2589ff,
-    green: 0x42d66b,
-    black: 0x15151b
-};
-
-let homeWorld;
-let gameWorld;
-let homeCube;
-let gameCube;
-
-let isPlaying = false;
-let drag = null;
-
-let cubies = [];
-let busy = false;
-let moveCount = 0;
-let timerStarted = false;
-let startTime = 0;
-let timerInterval = null;
-let scrambleHistory = [];
-
-const CUBIE_SIZE = 0.95;
-const GAP = 0.05;
-const STEP = CUBIE_SIZE + GAP;
-
-const FACE_INFO = {
-    R: { axis: "x", layer: 1, direction: -1 },
-    L: { axis: "x", layer: -1, direction: 1 },
-    U: { axis: "y", layer: 1, direction: -1 },
-    D: { axis: "y", layer: -1, direction: 1 },
-    F: { axis: "z", layer: 1, direction: -1 },
-    B: { axis: "z", layer: -1, direction: 1 }
-};
-
-// ---------- CREATE THREE.JS SCENE ----------
-
-function createScene(elementId) {
-    const element = document.getElementById(elementId);
-
-    if (!element) {
-        console.error("Missing element:", elementId);
-        return null;
-    }
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0d0d14);
-
-    const camera = new THREE.PerspectiveCamera(
-        40,
-        element.clientWidth / Math.max(element.clientHeight, 1),
-        0.1,
-        100
-    );
-
-    camera.position.set(4.5, 4.2, 6.5);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false
-    });
-
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 2)
-    );
-
-    renderer.setSize(
-        element.clientWidth || 300,
-        element.clientHeight || 300
-    );
-
-    renderer.outputEncoding = THREE.sRGBEncoding;
-
-    element.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(5, 8, 6);
-    scene.add(light);
-
-    return {
-        element,
-        scene,
-        camera,
-        renderer
-    };
-}
-
-// ---------- CREATE CUBE ----------
-
-function createCube(world) {
-    const cube = new THREE.Group();
-    const blackMaterial = new THREE.MeshStandardMaterial({
-        color: COLORS.black,
-        roughness: 0.45
-    });
-
-    const stickerMaterials = {
-        right: new THREE.MeshStandardMaterial({
-            color: COLORS.red,
-            roughness: 0.35
-        }),
-        left: new THREE.MeshStandardMaterial({
-            color: COLORS.orange,
-            roughness: 0.35
-        }),
-        top: new THREE.MeshStandardMaterial({
-            color: COLORS.white,
-            roughness: 0.35
-        }),
-        bottom: new THREE.MeshStandardMaterial({
-            color: COLORS.yellow,
-            roughness: 0.35
-        }),
-        front: new THREE.MeshStandardMaterial({
-            color: COLORS.green,
-            roughness: 0.35
-        }),
-        back: new THREE.MeshStandardMaterial({
-            color: COLORS.blue,
-            roughness: 0.35
-        })
-    };
-
-    const stickerGeometry = new THREE.BoxGeometry(
-        CUBIE_SIZE,
-        CUBIE_SIZE,
-        CUBIE_SIZE
-    );
-
-    for (let x = -1; x <= 1; x++) {
-        for (let y = -1; y <= 1; y++) {
-            for (let z = -1; z <= 1; z++) {
-                const materials = [
-                    x === 1 ? stickerMaterials.right : blackMaterial,
-                    x === -1 ? stickerMaterials.left : blackMaterial,
-                    y === 1 ? stickerMaterials.top : blackMaterial,
-                    y === -1 ? stickerMaterials.bottom : blackMaterial,
-                    z === 1 ? stickerMaterials.front : blackMaterial,
-                    z === -1 ? stickerMaterials.back : blackMaterial
-                ];
-
-                const cubie = new THREE.Mesh(
-                    stickerGeometry,
-                    materials
-                );
-
-                cubie.position.set(
-                    x * STEP,
-                    y * STEP,
-                    z * STEP
-                );
-
-                cubie.userData.home = {
-                    x,
-                    y,
-                    z
-                };
-
-                cube.add(cubie);
-                cubies.push(cubie);
-            }
-        }
-    }
-
-    world.scene.add(cube);
-    return cube;
-}
-
-// ---------- INITIALIZE WORLDS ----------
-
-function initialize() {
-    homeWorld = createScene("home-cube");
-    gameWorld = createScene("game-cube");
-
-    if (!homeWorld || !gameWorld) {
-        console.error(
-            "Could not find home-cube or game-cube in index.html."
-        );
-        return;
-    }
-
-    homeCube = createCube(homeWorld);
-    gameCube = createCube(gameWorld);
-
-    // Keep the game cube hidden until the player starts.
-    gameCube.visible = false;
-
-    animate();
-}
-
-// ---------- RENDER LOOP ----------
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (homeWorld) {
-        homeWorld.renderer.render(
-            homeWorld.scene,
-            homeWorld.camera
-        );
-    }
-
-    if (gameWorld) {
-        gameWorld.renderer.render(
-            gameWorld.scene,
-            gameWorld.camera
-        );
-    }
-}
-
-// ---------- RESIZE ----------
-
-function resizeWorld(world) {
-    if (!world) return;
-
-    const width = world.element.clientWidth;
-    const height = world.element.clientHeight;
-
-    if (!width || !height) return;
-
-    world.camera.aspect = width / height;
-    world.camera.updateProjectionMatrix();
-
-    world.renderer.setSize(width, height);
-}
-
-window.addEventListener("resize", () => {
-    resizeWorld(homeWorld);
-    resizeWorld(gameWorld);
-});
-
-// ---------- DRAG ROTATION ----------
-
-function enableDragging(world, cube) {
-    const canvas = world.renderer.domElement;
-
-    canvas.addEventListener("pointerdown", event => {
-        if (busy) return;
-
-        drag = {
-            x: event.clientX,
-            y: event.clientY,
-            pointerId: event.pointerId,
-            cube
-        };
-
-        canvas.setPointerCapture(event.pointerId);
-    });
-
-    canvas.addEventListener("pointermove", event => {
-        if (!drag || drag.pointerId !== event.pointerId) {
-            return;
-        }
-
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
-
-        cube.rotation.y += dx * 0.01;
-        cube.rotation.x += dy * 0.01;
-
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-    });
-
-    canvas.addEventListener("pointerup", () => {
-        drag = null;
-    });
-
-    canvas.addEventListener("pointercancel", () => {
-        drag = null;
-    });
-}
-
-// ---------- GAME NAVIGATION ----------
-
-function startGame() {
-    isPlaying = true;
-
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "none";
-    if (gameSection) gameSection.style.display = "block";
-
-    if (homeCube) homeCube.visible = false;
-    if (gameCube) gameCube.visible = true;
-
-    resizeWorld(gameWorld);
-}
-
-function backHome() {
-    isPlaying = false;
-
-    const homeSection = document.getElementById("home");
-    const gameSection = document.getElementById("game");
-
-    if (homeSection) homeSection.style.display = "";
-    if (gameSection) gameSection.style.display = "none";
-
-    if (homeCube) homeCube.visible = true;
-    if (gameCube) gameCube.visible = false;
-
-    resizeWorld(homeWorld);
-}
-
-// ---------- TIMER ----------
-
-function startTimer() {
-    if (timerStarted) return;
-
-    timerStarted = true;
-    startTime = Date.now();
-
-    timerInterval = setInterval(updateTimer, 100);
-}
-
-function updateTimer() {
-    const elapsed = Date.now() - startTime;
-    const minutes = Math.floor(elapsed / 60000);
-    const seconds = Math.floor((elapsed % 60000) / 1000);
-    const hundredths = Math.floor((elapsed % 1000) / 10);
-
-    const display =
-        String(minutes).padStart(2, "0") + ":" +
-        String(seconds).padStart(2, "0") + "." +
-        String(hundredths).padStart(2, "0");
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = display;
-    }
-}
-
-function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-
-    timerStarted = false;
-}
-
-function resetTimer() {
-    stopTimer();
-
-    const timerElement = document.getElementById("timer");
-
-    if (timerElement) {
-        timerElement.textContent = "00:00.00";
-    }
-}
-
-// ---------- MOVE COUNTER ----------
-
-function updateMoveCount() {
-    const counter = document.getElementById("move-count");
-
-    if (counter) {
-        counter.textContent = String(moveCount);
-    }
-}
-
-// ---------- FACE TURNS ----------
-
-function turnFace(face, reverse = false) {
-    if (busy || !gameCube) return;
-
-    const info = FACE_INFO[face];
-
-    if (!info) {
-        console.warn("Unknown face:", face);
-        return;
-    }
-
-    startTimer();
-    busy = true;
-
-    const angle =
-        info.direction *
-        (reverse ? -1 : 1) *
-        Math.PI / 2;
-
-    const selected = cubies.filter(cubie => {
-        return Math.round(cubie.position[info.axis] / STEP) ===
-            info.layer;
-    });
-
-    const pivot = new THREE.Group();
-    gameCube.add(pivot);
-
-    // Preserve each selected cubie's world transform.
-    selected.forEach(cubie => {
-        pivot.attach(cubie);
-    });
-
-    const duration = 180;
-    const start = performance.now();
-
-    function animateTurn(now) {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-
-        pivot.rotation[info.axis] = angle * eased;
-
-        if (progress < 1) {
-            requestAnimationFrame(animateTurn);
-            return;
-        }
-
-        // Snap to an exact quarter turn.
-        pivot.rotation[info.axis] = angle;
-
-        gameCube.updateMatrixWorld(true);
-
-        selected.forEach(cubie => {
-            gameCube.attach(cubie);
-
-            cubie.position.set(
-                Math.round(cubie.position.x / STEP) * STEP,
-                Math.round(cubie.position.y / STEP) * STEP,
-                Math.round(cubie.position.z / STEP) * STEP
-            );
-
-            cubie.rotation.set(
-                Math.round(cubie.rotation.x / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.y / (Math.PI / 2)) *
-                    (Math.PI / 2),
-                Math.round(cubie.rotation.z / (Math.PI / 2)) *
-                    (Math.PI / 2)
-            );
-        });
-
-        gameCube.remove(pivot);
-
-        moveCount++;
-        updateMoveCount();
-
-        busy = false;
-
-        if (isCubeSolved()) {
-            stopTimer();
-            showMessage("🎉 Cube solved!");
-        }
-    }
-
-    requestAnimationFrame(animateTurn);
-}
-
-// ---------- SCRAMBLE ----------
-
-function scrambleCube() {
-    if (busy) return;
-
-    scrambleHistory = [];
-
-    const faces = ["R", "L", "U", "D", "F", "B"];
-    let count = 0;
-
-    function nextMove() {
-        if (count >= 20) {
-            showMessage("Scrambled! Solve the cube.");
-            return;
-        }
-
-        let face;
-
-        do {
-            face = faces[Math.floor(Math.random() * faces.length)];
-        } while (
-            scrambleHistory.length &&
-            scrambleHistory[scrambleHistory.length - 1] === face
-        );
-
-        scrambleHistory.push(face);
-        count++;
-
-        turnFace(face, Math.random() < 0.5);
-
-        setTimeout(nextMove, 240);
-    }
-
-    nextMove();
-}
-
-// ---------- SOLVED CHECK ----------
-
-function isCubeSolved() {
-    const faces = [
-        { axis: "x", value: 1 },
-        { axis: "x", value: -1 },
-        { axis: "y", value: 1 },
-        { axis: "y", value: -1 },
-        { axis: "z", value: 1 },
-        { axis: "z", value: -1 }
-    ];
-
-    for (const face of faces) {
-        const faceCubies = cubies.filter(cubie => {
-            return Math.round(cubie.position[face.axis] / STEP) ===
-                face.value;
-        });
-
-        if (faceCubies.length !== 9) return false;
-
-        const first = faceCubies[0];
-        const firstColor = getFaceColor(first, face);
-
-        if (!firstColor) return false;
-
-        for (const cubie of faceCubies) {
-            if (getFaceColor(cubie, face) !== firstColor) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-function getFaceColor(cubie, face) {
-    const normal = new THREE.Vector3(
-        face.axis === "x" ? face.value : 0,
-        face.axis === "y" ? face.value : 0,
-        face.axis === "z" ? face.value : 0
-    );
-
-    normal.applyQuaternion(cubie.quaternion);
-
-    const directions = [
-        { x: 1, y: 0, z: 0, material: 0 },
-        { x: -1, y: 0, z: 0, material: 1 },
-        { x: 0, y: 1, z: 0, material: 2 },
-        { x: 0, y: -1, z: 0, material: 3 },
-        { x: 0, y: 0, z: 1, material: 4 },
-        { x: 0, y: 0, z: -1, material: 5 }
-    ];
-
-    let best = null;
-    let bestDot = -Infinity;
-
-    for (const direction of directions) {
-        const dot =
-            normal.x * direction.x +
-            normal.y * direction.y +
-            normal.z * direction.z;
-
-        if (dot > bestDot) {
-            bestDot = dot;
-            best = direction;
-        }
-    }
-
-    if (!best || bestDot < 0.9) return null;
-
-    return cubie.material[best.material].color.getHex();
-}
-
-// ---------- RESET ----------
-
-function resetCube() {
-    if (busy || !gameCube) return;
-
-    stopTimer();
-    moveCount = 0;
-    updateMoveCount();
-    resetTimer();
-
-    // Restore every cubie to its original position and orientation.
-    cubies.forEach(cubie => {
-        cubie.position.set(
-            cubie.userData.home.x * STEP,
-            cubie.userData.home.y * STEP,
-            cubie.userData.home.z * STEP
-        );
-
-        cubie.rotation.set(0, 0, 0);
-        cubie.quaternion.identity();
-    });
-
-    gameCube.rotation.set(0, 0, 0);
-
-    showMessage("Cube reset!");
-}
-
-function resetView() {
-    if (!gameCube || busy) return;
-
-    gameCube.rotation.set(0, 0, 0);
-    gameWorld.camera.position.set(4.5, 4.2, 6.5);
-    gameWorld.camera.lookAt(0, 0, 0);
-}
-
-// ---------- MESSAGE ----------
-
-function showMessage(message) {
-    const element = document.getElementById("message");
-
-    if (element) {
-        element.textContent = message;
-
-        setTimeout(() => {
-            if (element.textContent === message) {
-                element.textContent = "";
-            }
-        }, 2500);
-    } else {
-        console.log(message);
-    }
-}
-
-// ---------- BUTTON CONNECTIONS ----------
-
-function connectButtons() {
-    const buttonActions = {
-        "start-button": startGame,
-        "scramble-button": scrambleCube,
-        "reset-button": resetCube,
-        "reset-view-button": resetView,
-        "home-button": backHome
-    };
-
-    Object.entries(buttonActions).forEach(([id, action]) => {
-        const button = document.getElementById(id);
-
-        if (button) {
-            button.addEventListener("click", action);
-        }
-    });
-
-    document.querySelectorAll("[data-move]").forEach(button => {
-        button.addEventListener("click", () => {
-            const value = button.dataset.move;
-            const reverse = value.endsWith("'");
-
-            turnFace(value[0], reverse);
-        });
-    });
-}
-
-// ---------- START ----------
-
-window.addEventListener("DOMContentLoaded", () => {
-    initialize();
-
-    if (homeWorld && homeCube) {
-        enableDragging(homeWorld, homeCube);
-    }
-
-    if (gameWorld && gameCube) {
-        enableDragging(gameWorld, gameCube);
-    }
-
-    connectButtons();
-});
-        if (button) {
-            button.addEventListener("click", action);
-        }
-    });
-
-    document.querySelectorAll("[data-move]").forEach(button => {
-        button.addEventListener("click", () => {
-            const value = button.dataset.move;
-            const reverse = value.endsWith("'");
-
-            turnFace(value[0], reverse);
-        });
-    });
-}
-
-// ---------- START ----------
-
-window.addEventListener("DOMContentLoaded", () => {
-    initialize();
-
-    if (homeWorld && homeCube) {
-        enableDragging(homeWorld, homeCube);
-    }
-
-    if (gameWorld && gameCube) {
-        enableDragging(gameWorld, gameCube);
-    }
-
-    connectButtons();
-});
+window.addEventListener("DOMContentLoaded", init);
