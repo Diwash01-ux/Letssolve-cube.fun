@@ -1,209 +1,568 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* =================================
+   LET'S SOLVE CUBE
+   Modern 3D Gaming Website
+================================= */
+
+:root {
+    --background: #0d0d14;
+    --surface: #15151f;
+    --surface-light: #20202c;
+    --accent: #a3ff5e;
+    --accent-dark: #78d93a;
+    --text: #f5f5fa;
+    --muted: #a1a1b5;
+    --border: rgba(255, 255, 255, 0.09);
+    --radius: 18px;
+}
 
 * {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-    background: #101014;
-    color: white;
-    font-family: 'Space Grotesk', sans-serif;
     min-height: 100vh;
+    background:
+        radial-gradient(
+            circle at 80% 10%,
+            rgba(90, 255, 80, 0.07),
+            transparent 32%
+        ),
+        var(--background);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
 }
 
-header {
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button {
+    font: inherit;
+    cursor: pointer;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* =================================
+   NAVIGATION
+================================= */
+
+.navbar {
+    width: 100%;
+    min-height: 76px;
+    padding: 16px 7%;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 25px;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(13, 13, 20, 0.85);
 }
 
 .logo {
-    width: 35px;
-    height: 35px;
-    border: 2px solid #b9ff66;
-    border-radius: 50%;
-    color: #b9ff66;
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: -0.8px;
+}
+
+.logo span {
+    color: var(--accent);
+}
+
+.nav-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    transition: 0.2s ease;
+}
+
+.nav-button:hover {
+    background: var(--accent);
+    color: #101010;
+}
+
+/* =================================
+   HOMEPAGE HERO
+================================= */
+
+.hero {
+    width: min(1200px, 100%);
+    min-height: 510px;
+    margin: auto;
+    padding: 55px 7%;
     display: grid;
-    place-items: center;
-    font-weight: bold;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 25px;
 }
 
-header h3 {
-    font-size: 13px;
-    letter-spacing: 3px;
-}
-
-header span {
-    margin-left: auto;
-    color: #777;
-    font-size: 10px;
-    letter-spacing: 2px;
-}
-
-main {
-    width: 90%;
-    max-width: 700px;
-    margin: 50px auto;
-    text-align: center;
+.hero-content {
+    max-width: 540px;
 }
 
 .eyebrow {
-    color: #b9ff66;
-    font-size: 11px;
-    letter-spacing: 4px;
-    margin-bottom: 15px;
+    display: inline-block;
+    margin-bottom: 18px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
 }
 
-h1 {
-    font-size: clamp(48px, 10vw, 80px);
-    line-height: 1.1;
+.hero h1 {
+    font-size: clamp(38px, 5vw, 64px);
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -2px;
 }
 
-h1 span {
-    color: #b9ff66;
+.hero h1 span {
+    color: var(--accent);
 }
 
-.subtitle {
-    color: #aaa;
-    margin: 15px 0 30px;
-    font-size: 14px;
+.hero-description {
+    max-width: 470px;
+    margin-top: 22px;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.9;
 }
 
-.cube-card,
-.game-card {
-    height: 350px;
+.primary-button,
+.secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 12px 21px;
+    border-radius: 11px;
+    font-weight: 800;
+    transition:
+        transform 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.primary-button {
+    margin-top: 25px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #101010;
+    box-shadow: 0 5px 25px rgba(163, 255, 94, 0.12);
+}
+
+.primary-button:hover {
+    transform: translateY(-2px);
+    background: #b5ff82;
+}
+
+.secondary-button {
+    border: 1px solid var(--border);
+    background: var(--surface-light);
+    color: var(--text);
+}
+
+.secondary-button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.small-note {
+    margin-top: 13px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* =================================
+   3D CUBE CONTAINERS
+================================= */
+
+.cube-container {
+    width: 100%;
+    height: 380px;
+    min-width: 0;
     position: relative;
-    overflow: hidden;
-    border-radius: 22px;
-    background: linear-gradient(
-        145deg,
-        #eeeeF2,
-        #c7c7cf
-    );
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
 }
 
-#scene,
-#gameScene {
-    position: absolute;
-    inset: 0;
-}
-
-#scene canvas,
-#gameScene canvas {
+.cube-container canvas,
+.game-cube-container canvas {
+    display: block;
     width: 100%;
     height: 100%;
-    display: block;
+    touch-action: none;
+    border-radius: var(--radius);
 }
 
-.cube-label {
-    position: absolute;
-    bottom: 18px;
-    left: 20px;
-    color: #555;
-    font-size: 10px;
-    letter-spacing: 2px;
-    font-weight: bold;
-    pointer-events: none;
+/* =================================
+   FEATURES
+================================= */
+
+.features {
+    width: min(1100px, 100%);
+    margin: 0 auto;
+    padding: 15px 7% 65px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
 }
 
-#startButton {
-    margin-top: 25px;
-    padding: 16px 25px;
-    border: none;
-    border-radius: 50px;
-    background: #b9ff66;
-    color: #111;
-    font-weight: bold;
-    font-size: 11px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: 0.3s;
+.feature-card {
+    padding: 25px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.045),
+        rgba(255, 255, 255, 0.015)
+    );
+    transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-#startButton:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(185, 255, 102, 0.2);
+.feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(163, 255, 94, 0.45);
 }
 
-.hint {
-    color: #777;
-    font-size: 12px;
-    margin-top: 15px;
+.feature-icon {
+    margin-bottom: 12px;
+    font-size: 29px;
 }
 
-.hidden {
-    display: none !important;
+.feature-card h3 {
+    margin-bottom: 8px;
+    font-size: 17px;
 }
+
+.feature-card p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* =================================
+   GAME SECTION
+================================= */
 
 #game {
-    margin-top: 35px;
+    width: min(850px, 100%);
+    min-height: 70vh;
+    margin: 0 auto;
+    padding: 25px 20px 55px;
 }
 
-#game h2 {
-    font-size: 35px;
-    margin-bottom: 20px;
-}
-
-.buttons {
+.game-header {
     display: flex;
-    gap: 12px;
-    margin-top: 18px;
-}
-
-.buttons button,
-#backButton {
-    flex: 1;
-    padding: 14px;
-    border: none;
-    border-radius: 10px;
-    background: #b9ff66;
-    color: #111;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.buttons #resetButton {
-    background: #292931;
-    color: white;
-    border: 1px solid #444;
-}
-
-#backButton {
-    margin-top: 12px;
-    width: 100%;
-    background: #292931;
-    color: white;
-}
-
-footer {
-    display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 25px;
-    color: #777;
-    font-size: 9px;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.game-header h2 {
+    font-size: 23px;
+    font-weight: 900;
+}
+
+.game-header .secondary-button {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+/* =================================
+   TIMER AND MOVE COUNTER
+================================= */
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.stat-card {
+    padding: 17px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
     letter-spacing: 2px;
 }
 
-@media (max-width: 480px) {
-    main {
-        margin-top: 35px;
+.stat-card strong {
+    color: var(--accent);
+    font-size: clamp(25px, 5vw, 35px);
+    font-variant-numeric: tabular-nums;
+}
+
+/* =================================
+   GAME CUBE
+================================= */
+
+.game-cube-container {
+    width: 100%;
+    height: 360px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(163, 255, 94, 0.055),
+            transparent 65%
+        ),
+        #101019;
+}
+
+.instruction {
+    margin: 13px 0 25px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+/* =================================
+   FACE MOVE CONTROLS
+================================= */
+
+.controls {
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.controls h3 {
+    margin-bottom: 17px;
+    font-size: 17px;
+}
+
+.move-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.move-grid button {
+    min-height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-light);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 900;
+    transition: 0.2s ease;
+}
+
+.move-grid button:hover {
+    border-color: var(--accent);
+    background: rgba(163, 255, 94, 0.1);
+    color: var(--accent);
+}
+
+.move-grid button:active {
+    transform: scale(0.96);
+}
+
+.move-help {
+    margin-top: 17px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* =================================
+   GAME ACTIONS
+================================= */
+
+.game-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.game-actions .primary-button,
+.game-actions .secondary-button {
+    flex: 1;
+    margin-top: 0;
+}
+
+.message {
+    min-height: 30px;
+    margin-top: 15px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* =================================
+   FOOTER
+================================= */
+
+footer {
+    padding: 25px 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+footer p:first-child {
+    margin-bottom: 4px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+/* =================================
+   MOBILE RESPONSIVENESS
+================================= */
+
+@media (max-width: 700px) {
+    .navbar {
+        min-height: 65px;
+        padding: 13px 5%;
     }
 
-    .cube-card,
-    .game-card {
+    .logo {
+        font-size: 18px;
+    }
+
+    .hero {
+        min-height: auto;
+        padding: 42px 6% 25px;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .hero h1 {
+        font-size: clamp(37px, 10vw, 52px);
+        letter-spacing: -1.5px;
+    }
+
+    .hero-description {
+        font-size: 14px;
+    }
+
+    .cube-container {
         height: 300px;
     }
 
-    header {
-        padding: 18px;
+    .features {
+        padding: 15px 6% 45px;
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
 
-    header span {
-        font-size: 8px;
+    .feature-card {
+        padding: 19px;
+    }
+
+    #game {
+        padding: 20px 12px 40px;
+    }
+
+    .game-header {
+        gap: 7px;
+    }
+
+    .game-header h2 {
+        font-size: 18px;
+    }
+
+    .game-header .secondary-button {
+        padding: 8px;
+        font-size: 11px;
+    }
+
+    .game-cube-container {
+        height: 320px;
+    }
+
+    .controls {
+        padding: 16px;
+    }
+
+    .move-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 9px;
+    }
+
+    .move-grid button {
+        min-height: 46px;
+    }
+
+    .game-actions {
+        flex-direction: column;
+    }
+
+    .game-actions .primary-button,
+    .game-actions .secondary-button {
+        width: 100%;
+        min-height: 48px;
+    }
+}
+
+@media (max-width: 360px) {
+    .game-header h2 {
+        font-size: 16px;
+    }
+
+    .stat-card {
+        padding: 12px 7px;
+    }
+
+    .game-cube-container {
+        height: 275px;
+    }
+
+    .controls {
+        padding: 12px;
+    }
+}
+
+/* =================================
+   ACCESSIBILITY
+================================= */
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
     }
 }
