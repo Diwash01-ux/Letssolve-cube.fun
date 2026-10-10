@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Cube</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">C</div>
+        <h3>THE CUBE</h3>
+        <span>3D EXPERIENCE</span>
+    </header>
+
+    <main>
+        <p class="eyebrow">THINK IN THREE DIMENSIONS</p>
+
+        <h1>The <span>Cube</span></h1>
+
+        <p class="subtitle">
+            A little puzzle. A lot of possibilities.
+        </p>
+
+        <div class="cube-card" id="cubeCard">
+            <div id="scene"></div>
+
+            <div class="cube-label">
+                DRAG TO EXPLORE
+            </div>
+        </div>
+
+        <button id="startButton">
+            ▶ &nbsp; DOUBLE TAP OR CLICK TO START
+        </button>
+
+        <p class="hint">
+            Drag the cube to rotate it
+        </p>
+
+        <section id="game" class="hidden">
+            <h2>Make your move.</h2>
+
+            <div class="game-card">
+                <div id="gameScene"></div>
+            </div>
+
+            <div class="buttons">
+                <button id="scrambleButton">Scramble</button>
+                <button id="resetButton">Reset View</button>
+            </div>
+
+            <button id="backButton">Back to Home</button>
+        </section>
+    </main>
+
+    <footer>
+        <span>DESIGNED FOR CURIOSITY</span>
+        <span>© THE CUBE</span>
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
