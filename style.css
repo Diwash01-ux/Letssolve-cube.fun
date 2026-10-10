@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #101014;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 25px;
+}
+
+.logo {
+    width: 35px;
+    height: 35px;
+    border: 2px solid #b9ff66;
+    border-radius: 50%;
+    color: #b9ff66;
+    display: grid;
+    place-items: center;
+    font-weight: bold;
+}
+
+header h3 {
+    font-size: 13px;
+    letter-spacing: 3px;
+}
+
+header span {
+    margin-left: auto;
+    color: #777;
+    font-size: 10px;
+    letter-spacing: 2px;
+}
+
+main {
+    width: 90%;
+    max-width: 700px;
+    margin: 50px auto;
+    text-align: center;
+}
+
+.eyebrow {
+    color: #b9ff66;
+    font-size: 11px;
+    letter-spacing: 4px;
+    margin-bottom: 15px;
+}
+
+h1 {
+    font-size: clamp(48px, 10vw, 80px);
+    line-height: 1.1;
+}
+
+h1 span {
+    color: #b9ff66;
+}
+
+.subtitle {
+    color: #aaa;
+    margin: 15px 0 30px;
+    font-size: 14px;
+}
+
+.cube-card,
+.game-card {
+    height: 350px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    background: linear-gradient(
+        145deg,
+        #eeeeF2,
+        #c7c7cf
+    );
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+
+#scene,
+#gameScene {
+    position: absolute;
+    inset: 0;
+}
+
+#scene canvas,
+#gameScene canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.cube-label {
+    position: absolute;
+    bottom: 18px;
+    left: 20px;
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+#startButton {
+    margin-top: 25px;
+    padding: 16px 25px;
+    border: none;
+    border-radius: 50px;
+    background: #b9ff66;
+    color: #111;
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#startButton:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(185, 255, 102, 0.2);
+}
+
+.hint {
+    color: #777;
+    font-size: 12px;
+    margin-top: 15px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#game {
+    margin-top: 35px;
+}
+
+#game h2 {
+    font-size: 35px;
+    margin-bottom: 20px;
+}
+
+.buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.buttons button,
+#backButton {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: #b9ff66;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.buttons #resetButton {
+    background: #292931;
+    color: white;
+    border: 1px solid #444;
+}
+
+#backButton {
+    margin-top: 12px;
+    width: 100%;
+    background: #292931;
+    color: white;
+}
+
+footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 25px;
+    color: #777;
+    font-size: 9px;
+    letter-spacing: 2px;
+}
+
+@media (max-width: 480px) {
+    main {
+        margin-top: 35px;
+    }
+
+    .cube-card,
+    .game-card {
+        height: 300px;
+    }
+
+    header {
+        padding: 18px;
+    }
+
+    header span {
+        font-size: 8px;
+    }
+}
