@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Cube</title>
+
+    <meta name="theme-color" content="#0d0d14">
+    <meta name="description" content="Play and solve a 3D Rubik's Cube online.">
+
+    <title>Let's Solve Cube | 3D Rubik's Cube</title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -12,59 +16,165 @@
 
 <body>
 
-    <header>
-        <div class="logo">C</div>
-        <h3>THE CUBE</h3>
-        <span>3D EXPERIENCE</span>
+    <!-- NAVIGATION -->
+    <header class="navbar">
+        <a href="#" class="logo">Let's<span>Solve</span>Cube</a>
+        <a href="#game" class="nav-button" onclick="startGame(); return false;">
+            Play Now
+        </a>
     </header>
 
-    <main>
-        <p class="eyebrow">THINK IN THREE DIMENSIONS</p>
+    <!-- HOMEPAGE -->
+    <main id="home">
 
-        <h1>The <span>Cube</span></h1>
+        <section class="hero">
+            <div class="hero-content">
+                <p class="eyebrow">YOUR NEXT CHALLENGE</p>
 
-        <p class="subtitle">
-            A little puzzle. A lot of possibilities.
-        </p>
+                <h1>Think in 3D.<br>
+                    <span>Solve the Cube.</span>
+                </h1>
 
-        <div class="cube-card" id="cubeCard">
-            <div id="scene"></div>
+                <p class="hero-description">
+                    Challenge your mind with our interactive 3D Rubik's Cube.
+                    Scramble it, make your moves, and find your solution.
+                </p>
 
-            <div class="cube-label">
-                DRAG TO EXPLORE
+                <button
+                    id="start-button"
+                    class="primary-button"
+                    type="button">
+                    Start Solving →
+                </button>
+
+                <p class="small-note">
+                    Free to play · No account required
+                </p>
+            </div>
+
+            <div class="cube-container" id="home-cube"></div>
+        </section>
+
+        <section class="features">
+            <article class="feature-card">
+                <div class="feature-icon">🎮</div>
+                <h3>Interactive 3D</h3>
+                <p>Explore your cube from every angle.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <h3>Beat Your Time</h3>
+                <p>Track how long your solve takes.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <h3>Train Your Mind</h3>
+                <p>Practice your cube-solving skills.</p>
+            </article>
+        </section>
+
+    </main>
+
+    <!-- GAME SECTION -->
+    <section id="game" style="display: none;">
+
+        <div class="game-header">
+            <button
+                id="home-button"
+                class="secondary-button"
+                type="button">
+                ← Home
+            </button>
+
+            <h2>Cube Arena</h2>
+
+            <button
+                id="reset-view-button"
+                class="secondary-button"
+                type="button">
+                Reset View
+            </button>
+        </div>
+
+        <!-- TIMER AND MOVE COUNTER -->
+        <div class="stats">
+            <div class="stat-card">
+                <span class="stat-label">TIME</span>
+                <strong id="timer">00:00.00</strong>
+            </div>
+
+            <div class="stat-card">
+                <span class="stat-label">MOVES</span>
+                <strong id="move-count">0</strong>
             </div>
         </div>
 
-        <button id="startButton">
-            ▶ &nbsp; DOUBLE TAP OR CLICK TO START
-        </button>
+        <!-- 3D GAME CUBE -->
+        <div class="game-cube-container" id="game-cube"></div>
 
-        <p class="hint">
-            Drag the cube to rotate it
+        <p class="instruction">
+            Drag the cube to rotate your view. Use the buttons below
+            to turn individual faces.
         </p>
 
-        <section id="game" class="hidden">
-            <h2>Make your move.</h2>
+        <!-- FACE ROTATIONS -->
+        <div class="controls">
+            <h3>Face Moves</h3>
 
-            <div class="game-card">
-                <div id="gameScene"></div>
+            <div class="move-grid">
+                <button type="button" data-move="U">U</button>
+                <button type="button" data-move="U'">U′</button>
+
+                <button type="button" data-move="D">D</button>
+                <button type="button" data-move="D'">D′</button>
+
+                <button type="button" data-move="L">L</button>
+                <button type="button" data-move="L'">L′</button>
+
+                <button type="button" data-move="R">R</button>
+                <button type="button" data-move="R'">R′</button>
+
+                <button type="button" data-move="F">F</button>
+                <button type="button" data-move="F'">F′</button>
+
+                <button type="button" data-move="B">B</button>
+                <button type="button" data-move="B'">B′</button>
             </div>
 
-            <div class="buttons">
-                <button id="scrambleButton">Scramble</button>
-                <button id="resetButton">Reset View</button>
-            </div>
+            <p class="move-help">
+                U = Up · D = Down · L = Left · R = Right ·
+                F = Front · B = Back · ′ = Reverse turn
+            </p>
+        </div>
 
-            <button id="backButton">Back to Home</button>
-        </section>
-    </main>
+        <!-- GAME ACTIONS -->
+        <div class="game-actions">
+            <button
+                id="scramble-button"
+                class="primary-button"
+                type="button">
+                🔀 Scramble Cube
+            </button>
 
+            <button
+                id="reset-button"
+                class="secondary-button"
+                type="button">
+                ↻ Reset Cube
+            </button>
+        </div>
+
+        <p id="message" class="message" aria-live="polite"></p>
+
+    </section>
+
+    <!-- FOOTER -->
     <footer>
-        <span>DESIGNED FOR CURIOSITY</span>
-        <span>© THE CUBE</span>
+        <p>Let's Solve Cube</p>
+        <p>Think smart. Turn fast. Solve it.</p>
     </footer>
-
-    <script src="script.js"></script>
 
 </body>
 </html>
